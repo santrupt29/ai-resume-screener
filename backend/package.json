@@ -1,0 +1,22 @@
+{
+    "name": "backend",
+    "version": "1.0.0",
+    "description": "Backend for AI Resume Screener Platform",
+    "main": "index.js",
+    "scripts": {
+      "dev": "supabase functions serve",
+      "deploy": "supabase functions deploy",
+      "start": "node index.js"
+    },
+    "dependencies": {
+      "@supabase/supabase-js": "^2.39.0",
+      "openai": "^4.20.1",
+      "uuid": "^9.0.1",
+      "dotenv": "^16.3.1",
+      "pdf-parse": "^1.1.1",
+      "mammoth": "^1.6.0"
+    },
+    "devDependencies": {
+      "supabase": "^1.127.4"
+    }
+  }
