@@ -75,13 +75,15 @@ const PublicJobPageComponent = () => {
     setIsSubmitting(true);
     
     try {
-      const result = await submitApplication.mutateAsync({
-        job_posting_id: jobId,
-        candidate_name: formData.candidate_name,
-        candidate_email: formData.candidate_email,
-        candidate_phone: formData.candidate_phone,
-        resume: formData.resume,
-      });
+      const formPayload = new FormData();
+  formPayload.append("job_posting_id", jobId);
+  formPayload.append("candidate_name", formData.candidate_name);
+  formPayload.append("candidate_email", formData.candidate_email);
+  formPayload.append("candidate_phone", formData.candidate_phone);
+  formPayload.append("resume", formData.resume);
+
+  const result = await submitApplication.mutateAsync(formPayload);
+
       
       addToast('Application submitted successfully!', 'success');
       

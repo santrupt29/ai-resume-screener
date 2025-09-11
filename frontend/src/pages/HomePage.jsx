@@ -235,7 +235,7 @@ import { useAuth } from '../hooks/useAuth';
 import Input from '../components/common/Input';
 
 export default function HomePage() {
-  const { user, signIn } = useAuth();
+  const { user, signInFunction } = useAuth();
   const navigate = useNavigate();
   const [showLogin, setShowLogin] = useState(false);
   const [loginForm, setLoginForm] = useState({
@@ -256,7 +256,7 @@ export default function HomePage() {
     setError('');
     
     try {
-      await signIn(loginForm.email, loginForm.password);
+      await signInFunction(loginForm.email, loginForm.password);
       navigate('/dashboard');
     } catch (err) {
       setError('Invalid email or password');

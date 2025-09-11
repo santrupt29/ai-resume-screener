@@ -7,10 +7,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/functions': {
-        target: 'https://blcnjrbtdigdtdxpegdc.supabase.co',
+      '/api': {
+        target: 'https://localhost:3000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/api'),
       }
     }
   },

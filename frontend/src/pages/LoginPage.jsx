@@ -1,14 +1,14 @@
 // src/pages/LoginPage.jsx (updated)
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../lib/ToastContext';
+import { useAuth } from '../hooks/useAuth.jsx';
+import { useToast } from '../lib/ToastContext.jsx';
 import Card, {CardContent, CardDescription, CardHeader, CardTitle} from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 
 export default function LoginPage() {
-  const { signIn } = useAuth();
+  const { signInFunction } = useAuth();
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [loginForm, setLoginForm] = useState({
@@ -29,11 +29,12 @@ export default function LoginPage() {
     setError('');
     
     try {
-      await signIn(loginForm.email, loginForm.password);
+      await signInFunction(loginForm.email, loginForm.password);
       addToast('Login successful!', 'success');
       navigate('/dashboard');
     } catch (err) {
       setError('Invalid email or password');
+      console.log('Error signing in:', err);
       addToast('Login failed. Please check your credentials.', 'error');
     } finally {
       setLoading(false);

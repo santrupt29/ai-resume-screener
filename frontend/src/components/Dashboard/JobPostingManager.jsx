@@ -49,7 +49,7 @@ const JobPostingManager = () => {
       } else {
         await createJobPosting.mutateAsync({
           ...formData,
-          user_id: user.id,
+          user_id: user?.id,
         });
         addToast('Job posting created successfully!', 'success');
       }
