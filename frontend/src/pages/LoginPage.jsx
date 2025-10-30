@@ -1,8 +1,7 @@
-// src/pages/LoginPage.jsx (updated)
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { useToast } from '../lib/ToastContext.jsx';
+import { useToast } from '../contexts/ToastContext.jsx';
 import Card, {CardContent, CardDescription, CardHeader, CardTitle} from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';

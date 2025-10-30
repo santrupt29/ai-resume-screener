@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -75,7 +74,7 @@ export default function AnalysisResults() {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   return (
-    <div className="space-y-6 ml-64">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Analysis Results</h1>
         <p className="mt-1 text-sm text-gray-500">

@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider } from './contexts/AuthProvider';
-import { ToastProvider } from './lib/ToastContext.jsx';
+import { ToastProvider } from './contexts/ToastContext.jsx';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import useAuth from './hooks/useAuth.jsx';
 import HomePage from './pages/HomePage';
@@ -53,6 +53,8 @@ function AppRoutes() {
 const headerExcludedPaths = [
   /^\/jobs\/[^/]+$/, // regex for "/jobs/:jobId"
   // Add other patterns as needed
+  /^\/status\/[^/]+$/, // regex for "/status/:applicationId",
+  /^\/status$/, // regex for "/status",
 ];
 
 function App() {

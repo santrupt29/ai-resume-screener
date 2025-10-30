@@ -1,119 +1,10 @@
-// // src/components/layout/Header.jsx (updated)
-// import React from 'react';
-// import { Link } from 'react-router-dom';
-// import LoginButton from '../auth/LoginButton';
-// import LogoutButton from '../auth/LogoutButton';
-// import { useAuth } from '../../hooks/useAuth';
-// import { supabaseServer } from '../../lib/supabase';
-
-// export default function Header() {
-//   const { user } = useAuth();
-//   return (
-//     <header className="bg-white shadow">
-//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-//         <div className="flex justify-between h-16">
-//           <div className="flex">
-//             <div className="flex-shrink-0 flex items-center">
-//               <Link to="/" className="text-xl font-bold text-primary">AI Resume Screener</Link>
-//             </div>
-//           </div>
-//           <div className="flex items-center">
-//             {user ? (
-//               <div className="flex items-center space-x-4">
-//                 <span className="text-sm text-gray-700">Welcome, {user.email}!</span>
-//                 <LogoutButton />
-//               </div>
-//             ) : (
-//               <div className="flex items-center space-x-4">
-//                 <Link to="/login" className="text-sm font-medium text-gray-700 hover:text-primary">
-//                   Sign In
-//                 </Link>
-//                 <Link to="/signup">
-//                   <button className="bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90">
-//                     Sign Up
-//                   </button>
-//                 </Link>
-//               </div>
-//             )}
-//           </div>
-//         </div>
-//       </div>
-//     </header>
-//   );
-// }
-
-
-// src/components/layout/Header.jsx (visually appealing version)
-// import React from 'react';
-// import { Link } from 'react-router-dom';
-// import LoginButton from '../auth/LoginButton';
-// import LogoutButton from '../auth/LogoutButton';
-// import { useAuth } from '../../hooks/useAuth';
-
-// // Optional: Brand logo as icon
-// const BrandLogo = () => (
-//   <svg width="32" height="32" viewBox="0 0 32 32" className="mr-2 fill-primary">
-//     <circle cx="16" cy="16" r="14" className="fill-primary-100" />
-//     <text x="16" y="21" textAnchor="middle" className="fill-primary font-bold" fontSize="16">AI</text>
-//   </svg>
-// );
-
-// export default function Header() {
-//   const { user } = useAuth();
-//   return (
-//     <header className="fixed top-0 left-0 z-50 bg-white shadow-md">
-//       {/* Gradient accent bar */}
-//       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary-600 via-blue-500 to-fuchsia-500 rounded-t-xl" />
-//       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-//         <div className="flex justify-between items-center h-16">
-//           {/* Logo and branding */}
-//           <div className="flex items-center space-x-2">
-//             <Link to="/" className="flex items-center group focus:outline-none">
-//               <BrandLogo />
-//               <span className="ml-1 text-2xl font-extrabold tracking-tight text-primary-700 group-hover:text-primary-900 transition">
-//                 AI Resume Screener
-//               </span>
-//             </Link>
-//           </div>
-//           {/* Auth/buttons */}
-//           <div className="flex items-center space-x-5">
-//             {user ? (
-//               <>
-//                 <span className="hidden sm:inline text-sm text-gray-700 font-medium">
-//                   Welcome, <span className="font-semibold">{user.email}</span>
-//                 </span>
-//                 <LogoutButton className="rounded-md bg-gray-100 px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 transition" />
-//               </>
-//             ) : (
-//               <>
-//                 <Link
-//                   to="/login"
-//                   className="text-sm font-medium text-gray-700 hover:text-primary-700 focus:outline-none focus:underline"
-//                 >
-//                   Sign In
-//                 </Link>
-//                 <Link to="/signup">
-//                   <button className="bg-gradient-to-r from-primary-600 to-blue-600 text-white px-4 py-2 rounded-md text-sm font-semibold shadow hover:from-primary-700 hover:to-blue-700 transition">
-//                     Sign Up
-//                   </button>
-//                 </Link>
-//               </>
-//             )}
-//           </div>
-//         </div>
-//       </div>
-//     </header>
-//   );
-// }
-
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import LoginButton from '../auth/LoginButton';
 import LogoutButton from '../auth/LogoutButton';
 import { useAuth } from '../../hooks/useAuth';
-import { supabaseServer } from '../../lib/supabase';
+import {supabase, supabaseServer} from '../../lib/supabase';
 import { Sparkles, User, LogOut, Menu, X, ChevronDown } from 'lucide-react';
 
 const BrandLogo = () => (
@@ -178,7 +69,7 @@ export default function Header() {
                   AI Resume Screener
                 </span>
                 <span className="text-xs text-gray-500 font-medium tracking-wide">
-                  Powered by Intelligence
+                  {/* Powered by Intelligence */}
                 </span>
               </div>
             </Link>
@@ -220,7 +111,7 @@ export default function Header() {
                         Dashboard
                       </Link>
                       <button
-                        onClick={() => setUser(null)}
+                      onClick={async() => {await supabase.auth.signOut()}}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
@@ -287,7 +178,7 @@ export default function Header() {
                   Dashboard
                 </Link>
                 <button
-                  onClick={() => setUser(null)}
+                  onClick={async() => {await supabase.auth.signOut()}}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                 >
                   <LogOut className="w-4 h-4" />

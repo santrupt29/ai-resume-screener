@@ -9,7 +9,6 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import { formatDate } from '../../lib/utils';
 import { Briefcase, Users, BarChart3, Plus, TrendingUp, Calendar, CheckCircle, XCircle, ArrowRight, Sparkles, Target, Award, Zap } from 'lucide-react';
 
-// Enhanced Stat Card Component
 function StatCard({ title, value, subtitle, icon: Icon, gradient, trend }) {
   return (
     <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
@@ -46,7 +45,7 @@ function StatCard({ title, value, subtitle, icon: Icon, gradient, trend }) {
 }
 
 export default function Dashboard() {
-  const { user, profile } = useAuth();
+  const { profile, user } = useAuth();
 
   const navigate = useNavigate();
   const { data: jobPostings, isLoading: isLoadingJobs, error: jobError } = useJobPostings(user?.id);
@@ -87,7 +86,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 ml-64">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Welcome Header */}
         <div className="relative">
           <div className="absolute -top-20 -right-20 w-72 h-72 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-full blur-3xl opacity-20" />

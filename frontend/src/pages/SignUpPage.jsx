@@ -1,9 +1,7 @@
-// src/pages/SignUpPage.jsx (Updated)
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../lib/ToastContext';
+import { useToast } from '../contexts/ToastContext';
 import Card, { CardContent, CardDescription, CardHeader, CardTitle } from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';

@@ -28,13 +28,11 @@ async function getApplications(req, res) {
     }
 
     if (!applications || applications.length === 0) {
-      return res.status(200).json([]); // Return empty array if no applications
+      return res.status(200).json([]);
     }
 
-    // 2. Get all the unique resume IDs from the applications
     const resumeIds = [...new Set(applications.map(app => app.resume_id))];
 
-    // 3. Fetch all results that match those resume IDs
     const { data: results, error: resultsError } = await supabase
       .from("results")
       .select("*")
@@ -42,17 +40,14 @@ async function getApplications(req, res) {
 
     if (resultsError) {
       console.error("Error fetching results:", resultsError);
-      // Don't fail the whole request, just proceed without results
     }
 
-    // 4. Merge the two datasets in JavaScript
     const mergedApplications = applications.map(application => {
-      // Find all results that match this application's resume_id
       const applicationResults = results?.filter(result => result.resume_id === application.resume_id) || [];
       
       return {
         ...application,
-        results: applicationResults // Add the results as a new property
+        results: applicationResults 
       };
     });
 

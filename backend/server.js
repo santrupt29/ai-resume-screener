@@ -5,13 +5,13 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer'; 
 import checkApplicationStatus from './controllers/checkApplications.js';
-import createJobPosting from './controllers/createJobPosting.js';
 import processResume from './controllers/processResume.js';
 import submitApplication from './controllers/submitApplications.js';
 console.log('checkApplicationStatus handler imported:', checkApplicationStatus); 
 import analysisResults from './controllers/analysisResults.js';
 import getApplications from './controllers/getApplications.js';
 import updateApplicationStatus from './controllers/updateApplicationStatus.js';
+import {updateJobPosting, createJobPosting} from './controllers/createJobPosting.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -78,6 +78,7 @@ app.get("/api/job-posting/:jobId", async (req, res) => {
     return res.status(500).json({ error: "Unexpected error occurred" });
   }
 });
+app.post("/api/job-posting/:jobId", updateJobPosting)
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

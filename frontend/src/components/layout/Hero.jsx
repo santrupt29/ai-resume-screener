@@ -1,34 +1,3 @@
-// import React from 'react';
-// import { Link } from 'react-router-dom';
-
-// export default function Hero() {
-//   return (
-//     <section className="bg-gradient-to-br from-blue-50 to-indigo-100 py-20">
-//       <div className="container mx-auto px-6 text-center">
-//         <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight">
-//           Screen Resumes <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">10x Faster</span> with AI
-//         </h1>
-//         <p className="mt-4 text-xl text-gray-600 max-w-3xl mx-auto">
-//           Stop wasting hours on manual resume screening. Our AI-powered tool analyzes, ranks, and matches candidates to your job descriptions in seconds, so you can focus on interviewing the best talent.
-//         </p>
-//         <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-//           <Link to="/signup" className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition shadow-lg">
-//             Get Started
-//           </Link>
-//           <a href="#how-it-works" className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-gray-100 transition">
-//             See How It Works
-//           </a>
-//         </div>
-//         <div className="mt-12 animate-float">
-//           <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1920&auto=format&fit=crop" alt="Dashboard Screenshot" className="rounded-xl shadow-2xl mx-auto max-w-4xl" />
-//         </div>
-//       </div>
-//     </section>
-//   );
-// }
-
-
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Sparkles, ArrowRight, CheckCircle } from 'lucide-react';
@@ -114,7 +83,7 @@ export default function Hero() {
           <div className="relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur-2xl opacity-30 group-hover:opacity-50 transition-opacity" />
             <img 
-              src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1920&auto=format&fit=crop" 
+            src='/Demo.png'
               alt="Dashboard Screenshot" 
               className="relative rounded-2xl shadow-2xl mx-auto max-w-5xl border-4 border-white group-hover:scale-105 transition-transform duration-500" 
             />

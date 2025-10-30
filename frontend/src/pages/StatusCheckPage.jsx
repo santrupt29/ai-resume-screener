@@ -1,4 +1,3 @@
-// src/pages/StatusCheckPage.jsx
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';

@@ -5,13 +5,14 @@ import {
   updateJobPosting, 
   deleteJobPosting 
 } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 export function useJobPostings(userId) {
   const result = useQuery({
     queryKey: ['jobPostings', userId],
     queryFn: () => getJobPostings(userId),
     enabled: !!userId,
-    retry: 1, // Prevents infinite retries on failure
+    retry: 1, 
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
@@ -40,31 +41,41 @@ export function useCreateJobPosting() {
 }
 
 // --- UPDATED useUpdateJobPosting ---
-export function useUpdateJobPosting() {
+export const useUpdateJobPosting = () => {
   const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: ({ jobId, updates }) => updateJobPosting(jobId, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobPostings'] });
-    },
-    // Add error handling
-    onError: (error) => {
-      console.error("Failed to update job posting:", error);
-    },
-  });
-}
 
-export function useDeleteJobPosting() {
-  const queryClient = useQueryClient();
-  
   return useMutation({
-    mutationFn: deleteJobPosting,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobPostings'] });
+    mutationFn: async ({ jobId, updates }) => {
+      const { data, error } = await supabase
+        .from('job_postings')
+        .update(updates)
+        .eq('id', jobId)
+        .select();
+
+      if (error) throw new Error(error.message);
+      return data;
     },
-    onError: (error) => {
-      console.error("Failed to delete job posting:", error);
+    onSuccess: () => {
+      queryClient.invalidateQueries(['jobPostings']);
     },
   });
-}
+};
+
+export const useDeleteJobPosting = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (jobId) => {
+      const { error } = await supabase
+        .from('job_postings')
+        .delete()
+        .eq('id', jobId);
+
+      if (error) throw new Error(error.message);
+      return jobId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['jobPostings']);
+    },
+  });
+};

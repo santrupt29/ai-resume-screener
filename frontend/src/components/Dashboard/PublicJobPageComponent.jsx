@@ -7,8 +7,7 @@ import  Button  from '../common/Button';
 import  Input  from '../common/Input';
 import { getJobPosting } from '../../lib/api';
 import { useSubmitApplication } from '../../hooks/useApplications';
-import { useToast } from '../../lib/ToastContext';
-import  Toast  from '../common/Toast';
+import { useToast } from '../../contexts/ToastContext';
 import { formatDate } from '../../lib/utils';
 import { Briefcase, MapPin, Calendar, Upload, Send } from 'lucide-react';
 

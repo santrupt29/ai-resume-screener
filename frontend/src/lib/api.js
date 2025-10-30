@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
 import { axiosInstance } from './axios';
+import {supabase} from './supabase';
 
 export const getCurrentUser = async () => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -74,12 +74,17 @@ export const getJobPostings = async (userId) => {
 };
 
 export const getJobPosting = async (jobId) => {
-  const response = await axiosInstance.get(`/job-posting/${jobId}`);
-  return response.data;
+  try {
+    const response = await axiosInstance.get(`/job-posting/${jobId}`);
+    return response.data;
+  } catch (error) {
+      console.error("Error fetching job posting:", error);
+      throw new Error(error.response?.data?.error || "Failed to fetch job posting");
+  }
 };
 
 export const updateJobPosting = async (jobId, updates) => {
-  const response = await axiosInstance.put(`/job-posting/${jobId}`, updates);
+  const response = await axiosInstance.post(`/job-posting/${jobId}`, updates);
   return response.data;
 };
 
@@ -116,8 +121,6 @@ export const updateApplicationStatus = async (id, status) => {
     console.error("Error updating application status:", error);
     throw new Error(error.response?.data?.error || "Failed to update application status");
   }
-  // const response = await axiosInstance.post(`/update-application-status/${applicationId}`, { status });
-  // return response.data;
 };
 
 export const checkApplicationStatus = async (applicationId, email) => {

@@ -6,10 +6,6 @@ async function checkApplicationStatus(req, res) {
         return res.status(400).json({ error: "Missing applicationId or email" });
     }
     console.log(`[DEBUG] Searching for applicationId: ${applicationId} with email: ${email}`);
-
-    // Query the candidate_submissions table directly
-    // We are assuming the custom ID is stored in a column named 'application_id'
-    // and the email is in 'candidate_email'
     const { data: submission, error: submissionError } = await supabase
         .from("candidate_submissions")
         .select(`
@@ -20,14 +16,12 @@ async function checkApplicationStatus(req, res) {
           results!results_resume_id_fkey(score, similarity_score, strengths, weaknesses, suggestions)
         )
       `)
-        .eq("application_id", applicationId) // Filter by the custom application ID
-        .eq("candidate_email", email) // Filter by the candidate's email
+        .eq("application_id", applicationId) 
+        .eq("candidate_email", email) 
         .maybeSingle();
 
     if (submissionError) {
         console.error("[DEBUG] Error fetching submission:", submissionError);
-        // This error might indicate that 'application_id' or 'candidate_email' columns don't exist.
-        // Let's check the table structure if that's the case.
         if (submissionError.code === "PGRST116") {
             return res.status(500).json({
                 error: "Database schema mismatch. The columns \"application_id\" or \"candidate_email\" might not exist on the candidate_submissions table.",
@@ -44,9 +38,8 @@ async function checkApplicationStatus(req, res) {
 
     console.log("[DEBUG] Submission found:", submission.id);
 
-    // Format response
     const response = {
-        application_id: submission.application_id, // Use the custom ID
+        application_id: submission.application_id, 
         candidate_name: submission.candidate_name,
         job_title: submission.job_postings?.title || "N/A",
         company: submission.job_postings?.company || "N/A",
@@ -55,7 +48,6 @@ async function checkApplicationStatus(req, res) {
         updated_at: submission.updated_at,
     };
 
-    // Include AI analysis if available
     if (submission.resumes && submission.resumes.results && submission.resumes.results.length > 0) {
         const result = submission.resumes.results[0];
         response.analysis = {
