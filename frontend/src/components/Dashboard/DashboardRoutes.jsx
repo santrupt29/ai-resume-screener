@@ -1,4 +1,3 @@
-// src/components/dashboard/DashboardRoutes.jsx
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Dashboard from './Dashboard';

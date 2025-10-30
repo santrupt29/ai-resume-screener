@@ -1,77 +1,7 @@
-// // frontend/src/hooks/useAuth.js
+// import React from 'react';
 // import { createContext, useContext, useEffect, useState } from 'react';
-// import { getCurrentUser, signIn, signUp, signOut } from '../lib/api';
-// import { supabase } from '../lib/supabase';
-
-// const AuthContext = createContext();
-
-// export function AuthProvider({ children }) {
-//   const [user, setUser] = useState(null);
-//   const [loading, setLoading] = useState(true);
-
-//   useEffect(() => {
-//     const fetchUser = async () => {
-//       try {
-//         const currentUser = await getCurrentUser();
-//         setUser(currentUser);
-//       } catch (error) {
-//         console.error('Error fetching user:', error);
-//       } finally {
-//         setLoading(false);
-//       }
-//     };
-
-//     fetchUser();
-
-//     const { data: authListener } = supabase.auth.onAuthStateChange(
-//       async (event, session) => {
-//         if (event === 'SIGNED_IN') {
-//           setUser(session.user);
-//         } else if (event === 'SIGNED_OUT') {
-//           setUser(null);
-//         }
-//       }
-//     );
-
-//     return () => {
-//       authListener.subscription.unsubscribe();
-//     };
-//   }, []);
-
-//   const value = {
-//     user,
-//     loading,
-//     signIn: async (email, password) => {
-//       const { data } = await signIn(email, password);
-//       setUser(data.user);
-//       return data;
-//     },
-//     signUp: async (email, password, name) => {
-//       const { data } = await signUp(email, password, name);
-//       return data;
-//     },
-//     signOut: async () => {
-//       await signOut();
-//       setUser(null);
-//     },
-//   };
-
-//   return (
-//     <AuthContext.Provider value={value}>
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// }
-
-// export function useAuth() {
-//   return useContext(AuthContext);
-// }
-
-// src/hooks/useAuth.jsx
-// import { createContext, useContext, useEffect, useState } from 'react';
-// // import { getCurrentUser, signIn, signUp, signOut } from '../lib/api';
-// import { getCurrentUser, signIn, signUp, signOut } from '../lib/api';
-// import { supabase } from '../lib/supabase';
+// import { getCurrentUser, signIn, signUp, signOut } from '../lib/api.js';
+// import { supabase } from '../lib/supabase.js';
 
 // const AuthContext = createContext();
 
@@ -80,19 +10,23 @@
 //   const [profile, setProfile] = useState(null);
 //   const [loading, setLoading] = useState(true);
 
-//   const fetchUserAndProfile = async () => {
+//   const fetchUserAndProfile = async (currentUser = null) => {
 //     try {
-//       const currentUser = await getCurrentUser();
-//       setUser(currentUser);
+//       const userToFetch = currentUser || await getCurrentUser();
+//       console.log('Found currentUser', userToFetch);
+//       setUser(userToFetch);
 
-//       if (currentUser) {
-//         const { data: profile, error } = await supabase
+//       if (userToFetch) {
+//         const { data: profileData, error } = await supabase
 //           .from('profiles')
 //           .select('*')
-//           .eq('id', currentUser.id)
+//           .eq('id', userToFetch.id)
 //           .single();
+//         console.log('Found profile', profileData);
 
-//         if (!error) setProfile(profile);
+//         if (!error) setProfile(profileData);
+//       } else {
+//         setProfile(null);
 //       }
 //     } catch (error) {
 //       console.error('Error fetching user/profile:', error);
@@ -106,12 +40,14 @@
 
 //     const { data: authListener } = supabase.auth.onAuthStateChange(
 //       async (event, session) => {
+//         console.log('Auth state changed:', event, session);
 //         if (event === 'SIGNED_IN') {
-//           setUser(session.user);
-//           await fetchUserAndProfile();
+//           // Use the session user directly instead of relying on state
+//           await fetchUserAndProfile(session.user);
 //         } else if (event === 'SIGNED_OUT') {
 //           setUser(null);
 //           setProfile(null);
+//           setLoading(false);
 //         }
 //       }
 //     );
@@ -125,18 +61,20 @@
 //     user,
 //     profile,
 //     loading,
-//     signIn: async (email, password) => {
-//       const { data } = await signIn(email, password);
-//       setUser(data.user);
-//       await fetchUserAndProfile();
+//     signInFunction: async (email, password) => {
+//       console.log('Signing in...', email, password);
+//       const data = await signIn(email, password);
+//       // Use the returned user data directly instead of relying on state
+//       await fetchUserAndProfile(data.user);
 //       return data;
 //     },
-//     signUp: async (email, password, name) => {
-//       const { data } = await signUp(email, password, name);
-//       await fetchUserAndProfile();
+//     signUpFunction: async (email, password, name) => {
+//       const data = await signUp(email, password, name);
+//       // Use the returned user data directly instead of relying on state
+//       await fetchUserAndProfile(data.user);
 //       return data;
 //     },
-//     signOut: async () => {
+//     signOutFunction: async () => {
 //       await signOut();
 //       setUser(null);
 //       setProfile(null);
@@ -154,94 +92,61 @@
 //   return useContext(AuthContext);
 // }
 
-// src/hooks/useAuth.jsx (Updated to Fix Destructuring Issue)
 
-import React from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
-import { getCurrentUser, signIn, signUp, signOut } from '../lib/api.js';
-import { supabase } from '../lib/supabase.js';
 
-const AuthContext = createContext();
+// import useAuthStore from "../stores/authStore.js";
+// export function useAuth() {
+//   const store = useAuthStore();
+  
+//   return {
+//     user: store.user,
+//     profile: store.profile,
+//     loading: store.loading,
+//     error: store.error,
+//     isAuthenticated: !!store.user,
+    
+//     signIn: store.signIn,
+//     signUp: store.signUp,
+//     signOut: store.signOut,
+//     updateProfile: store.updateProfile,
+//     setError: store.setError,
+//   };
+// }
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  const fetchUserAndProfile = async () => {
-    try {
-      const currentUser = await getCurrentUser();
-      console.log('Found currentUser', currentUser);
-      setUser(currentUser);
-      console.log('User set', user);
 
-      if (currentUser) {
-        const { data: profileData, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUser.id)
-          .single();
-          console.log('Found profile', profileData);
 
-        if (!error) setProfile(profileData);
-      }
-    } catch (error) {
-      console.error('Error fetching user/profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchUserAndProfile();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN') {
-          setUser(session?.user);
-          await fetchUserAndProfile();
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setProfile(null);
-        }
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  const value = {
-    user,
-    profile,
-    loading,
-    signInFunction: async (email, password) => {
-      console.log('Signing in...', email,password);
-      const data = await signIn(email, password); // Removed unnecessary destructuring
-      setUser(data.user);
-      await fetchUserAndProfile();
-      return data;
-    },
-    signUpFunction: async (email, password, name) => {
-      const data = await signUp(email, password, name); // Removed unnecessary destructuring
-      await fetchUserAndProfile();
-      return data;
-    },
-    signOutFunction: async () => {
-      await signOut();
-      setUser(null);
-      setProfile(null);
-    },
-  };
-
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
+// src/hooks/useAuth.js
+import  useAuthStore  from '../stores/authStore.js';
 export function useAuth() {
-  return useContext(AuthContext);
+  const store = useAuthStore();
+  console.log('useAuth Hook State:', {
+    userId: store.user?.id,
+    userEmail: store.user?.email,
+    loading: store.loading,
+    error: store.error,
+    initialized: store.initialized,
+    isAuthenticated: !!store.user,
+  });
+  
+  return {
+    // State
+    user: store.user,
+    profile: store.profile,
+    loading: store.loading,
+    error: store.error,
+    initialized: store.initialized,
+    isAuthenticated: !!store.user,
+    
+    // Actions
+    signIn: store.signIn,
+    signUp: store.signUp,
+    signOut: store.signOut,
+    updateProfile: store.updateProfile,
+    setError: store.setError,
+  };
 }
+
+export default useAuth;

@@ -1,4 +1,4 @@
-// src/components/dashboard/AnalysisResults.jsx
+
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -22,7 +22,9 @@ import {
 
 export default function AnalysisResults() {
   const { jobId } = useParams();
+  console.log('AnalysisResults component mounted with jobId:', jobId);
   const { data: analysisResults, isLoading, error } = useAnalysisResults(jobId);
+  console.log('AnalysisResults data:', analysisResults);
 
   if (isLoading) {
     return (
@@ -58,22 +60,22 @@ export default function AnalysisResults() {
 
   // Prepare data for charts
   const scoreData = analysisResults.map(result => ({
-    name: result.candidate_submission.candidate_name,
-    score: result.score,
-    similarity: result.similarity_score,
+    name: result.candidate_submissions?.candidate_name || 'Unknown',
+    score: result.score || 0,
+    similarity: result.similarity_score || 0,
   }));
 
   const statusDistribution = [
-    { name: 'Received', value: analysisResults.filter(r => r.candidate_submission.status === 'received').length },
-    { name: 'Reviewed', value: analysisResults.filter(r => r.candidate_submission.status === 'reviewed').length },
-    { name: 'Shortlisted', value: analysisResults.filter(r => r.candidate_submission.status === 'shortlisted').length },
-    { name: 'Rejected', value: analysisResults.filter(r => r.candidate_submission.status === 'rejected').length },
+    { name: 'Received', value: analysisResults.filter(r => r.candidate_submissions?.status === 'received').length },
+    { name: 'Reviewed', value: analysisResults.filter(r => r.candidate_submissions?.status === 'reviewed').length },
+    { name: 'Shortlisted', value: analysisResults.filter(r => r.candidate_submissions?.status === 'shortlisted').length },
+    { name: 'Rejected', value: analysisResults.filter(r => r.candidate_submissions?.status === 'rejected').length },
   ];
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 ml-64">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Analysis Results</h1>
         <p className="mt-1 text-sm text-gray-500">
@@ -183,10 +185,10 @@ export default function AnalysisResults() {
                   <tr key={result.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {result.candidate_submission.candidate_name}
+                        {result.candidate_submissions?.candidate_name || 'Unknown'}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {result.candidate_submission.candidate_email}
+                        {result.candidate_submissions?.candidate_email || 'No email'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -194,10 +196,10 @@ export default function AnalysisResults() {
                         <div className="w-16 bg-gray-200 rounded-full h-2.5 mr-2">
                           <div 
                             className="bg-green-600 h-2.5 rounded-full" 
-                            style={{ width: `${result.score}%` }}
+                            style={{ width: `${result.score || 0}%` }}
                           ></div>
                         </div>
-                        <div className="text-sm text-gray-900">{result.score}%</div>
+                        <div className="text-sm text-gray-900">{result.score || 0}%</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -205,20 +207,21 @@ export default function AnalysisResults() {
                         <div className="w-16 bg-gray-200 rounded-full h-2.5 mr-2">
                           <div 
                             className="bg-blue-600 h-2.5 rounded-full" 
-                            style={{ width: `${result.similarity_score}%` }}
+                            style={{ width: `${result.similarity_score || 0}%` }}
                           ></div>
                         </div>
-                        <div className="text-sm text-gray-900">{result.similarity_score}%</div>
+                        <div className="text-sm text-gray-900">{result.similarity_score || 0}%</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        result.candidate_submission.status === 'received' ? 'bg-blue-100 text-blue-800' :
-                        result.candidate_submission.status === 'reviewed' ? 'bg-yellow-100 text-yellow-800' :
-                        result.candidate_submission.status === 'shortlisted' ? 'bg-green-100 text-green-800' :
+                        result.candidate_submissions?.status === 'received' ? 'bg-blue-100 text-blue-800' :
+                        result.candidate_submissions?.status === 'reviewed' ? 'bg-yellow-100 text-yellow-800' :
+                        result.candidate_submissions?.status === 'shortlisted' ? 'bg-green-100 text-green-800' :
+                        result.candidate_submissions?.status === 'analyzed' ? 'bg-purple-100 text-purple-800' :
                         'bg-red-100 text-red-800'
                       }`}>
-                        {result.candidate_submission.status}
+                        {result.candidate_submissions?.status || 'Unknown'}
                       </span>
                     </td>
                     <td className="px-6 py-4">

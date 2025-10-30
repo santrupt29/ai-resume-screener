@@ -87,7 +87,6 @@ const PublicJobPageComponent = () => {
       
       addToast('Application submitted successfully!', 'success');
       
-      // Navigate to status page with application ID
       navigate('/status', { 
         state: { 
           applicationId: result.application_id,

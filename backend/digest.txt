@@ -1,0 +1,1055 @@
+Directory structure:
+└── backend/
+    ├── package.json
+    ├── server.js
+    ├── config/
+    │   └── supabase.js
+    └── controllers/
+        ├── analyzeMatches.js
+        ├── checkApplications.js
+        ├── createJobPosting.js
+        ├── processResume.js
+        └── submitApplications.js
+
+================================================
+FILE: package.json
+================================================
+{
+    "name": "backend",
+    "version": "1.0.0",
+    "description": "Backend for AI Resume Screener Platform",
+    "main": "server.js",
+    "type": "module",
+    "scripts": {
+        "dev": "nodemon server.js",
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "@google/genai": "^1.27.0",
+        "@supabase/supabase-js": "^2.39.0",
+        "cors": "^2.8.5",
+        "dotenv": "^16.3.1",
+        "express": "^5.1.0",
+        "mammoth": "^1.6.0",
+        "multer": "^2.0.2",
+        "openai": "^4.20.1",
+        "pdf-parse": "^1.0.1",
+        "uuid": "^9.0.1"
+    },
+    "devDependencies": {
+        "supabase": "^1.127.4"
+    }
+}
+
+
+
+================================================
+FILE: server.js
+================================================
+// backend/server.js
+
+import { config } from 'dotenv';
+config(); // Load environment variables from .env.local or .env
+// console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
+// console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY);
+import { createClient } from "@supabase/supabase-js";
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer'; 
+
+import analyzeMatches from './controllers/analyzeMatches.js';
+import checkApplicationStatus from './controllers/checkApplications.js';
+import createJobPosting from './controllers/createJobPosting.js';
+import processResume from './controllers/processResume.js';
+import submitApplication from './controllers/submitApplications.js';
+console.log('checkApplicationStatus handler imported:', checkApplicationStatus); 
+// // Initialize Express app
+const app = express();
+const port = process.env.PORT || 3000;
+
+// CORS configuration - adjust origins as needed (e.g., your frontend URL)
+const corsOptions = {
+  origin: ['http://localhost:3000', 'http://localhost:5173'], // Add your frontend origins here (e.g., Vite default port 5173)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true, // If you need cookies/auth
+};
+
+// Middlewares
+app.use(cors(corsOptions)); // Enable CORS with specific options
+app.use(express.json()); 
+app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+
+// Multer setup for file uploads (used in submit-application)
+const upload = multer({ storage: multer.memoryStorage() }); // Store files in memory for Supabase upload
+
+// Routes
+app.post('/api/analyze-matches', analyzeMatches);
+app.post('/api/check-application-status', checkApplicationStatus);
+app.post('/api/create-job-posting', createJobPosting);
+app.post('/api/process-resume', processResume);
+app.post('/api/submit-application', upload.single('resume'), submitApplication); // Handles file upload via multer
+app.get("/api/job-postings/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const { data, error } = await supabase
+      .from("job_postings")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching job postings:", error);
+      return res.status(500).json({ error: "Failed to fetch job postings" });
+    }
+
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    return res.status(500).json({ error: "Unexpected error occurred" });
+  }
+});
+app.get("/api/job-posting/:jobId", async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    const { data, error } = await supabase
+      .from("job_postings")
+      .select("*")
+      .eq("id", jobId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching job posting:", error);
+      return res.status(500).json({ error: "Failed to fetch job posting" });
+    }
+
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    return res.status(500).json({ error: "Unexpected error occurred" });
+  }
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'An unexpected error occurred' });
+});
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
+
+
+
+================================================
+FILE: config/supabase.js
+================================================
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config();
+
+export const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+
+================================================
+FILE: controllers/analyzeMatches.js
+================================================
+import { OpenAI } from "openai";
+import dotenv from 'dotenv';
+dotenv.config();
+import { supabase } from '../config/supabase.js';
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+  
+  function cosineSimilarity(vecA, vecB) {
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+  
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
+    }
+  
+    if (normA === 0 || normB === 0) {
+      return 0;
+    }
+  
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+  
+  // Function to generate job description embedding
+  async function generateJobEmbedding(jobDescription) {
+    try {
+      const response = await openai.embeddings.create({
+        model: 'text-embedding-ada-002',
+        input: jobDescription,
+      });
+  
+      return response.data[0].embedding;
+    } catch (error) {
+      console.error('Error generating job embedding:', error);
+      throw new Error('Failed to generate job embedding');
+    }
+  }
+  
+  // Function to analyze resume against job description
+  async function analyzeResumeWithAI(resumeText, jobDescription) {
+    try {
+      const prompt = `
+      Analyze the following resume against the job description and provide:
+      1. An overall match score from 0-100
+      2. A list of strengths (what makes the candidate a good fit)
+      3. A list of weaknesses (what the candidate is missing)
+      4. Suggestions for interview questions
+      
+      Resume:
+      ${resumeText}
+      
+      Job Description:
+      ${jobDescription}
+      
+      Please respond with JSON in the following format:
+      {
+        "score": 85,
+        "strengths": ["Strong experience in relevant technologies", "Leadership experience", etc.],
+        "weaknesses": ["Limited experience with X", "Missing certification Y", etc.],
+        "suggestions": ["Ask about experience with Z", "Discuss leadership style", etc.]
+      }
+      `;
+  
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          { role: 'system', content: 'You are an expert recruiter analyzing resumes against job descriptions.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3,
+      });
+  
+      const content = response.choices[0].message.content;
+  
+      try {
+        return JSON.parse(content);
+      } catch (parseError) {
+        console.error('Error parsing AI response:', parseError);
+        console.error('Raw response:', content);
+        throw new Error('Failed to parse AI response');
+      }
+    } catch (error) {
+      console.error('Error analyzing resume with AI:', error);
+      throw new Error('Failed to analyze resume with AI');
+    }
+  }
+  
+  // Main controller function
+  async function analyzeMatches(req, res) {
+    try {
+      const { resumeId, jobId } = req.body;
+  
+      if (!resumeId || !jobId) {
+        return res.status(400).json({ error: 'Missing resumeId or jobId' });
+      }
+  
+      // Get resume record
+      const { data: resume, error: resumeError } = await supabase
+        .from('resumes')
+        .select('*')
+        .eq('id', resumeId)
+        .single();
+  
+      if (resumeError || !resume) {
+        return res.status(404).json({ error: 'Resume not found' });
+      }
+  
+      // Get job posting
+      const { data: job, error: jobError } = await supabase
+        .from('job_postings')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+  
+      if (jobError || !job) {
+        return res.status(404).json({ error: 'Job posting not found' });
+      }
+  
+      // Process resume if not already processed
+      // NOTE: Since we're moving away from edge functions, you'll need to either:
+      // 1. Implement processResume as a separate controller and call it via internal function,
+      // 2. Or require and call it directly here (assuming you convert it next).
+      // For now, this is a placeholder - replace with actual call to your processResume logic.
+      if (!resume.embedding || resume.status !== 'processed') {
+        const { data: updatedResume } = await supabase
+          .from('resumes')
+          .select('*')
+          .eq('id', resumeId)
+          .single();
+  
+        if (!updatedResume || !updatedResume.embedding) {
+          return res.status(500).json({ error: 'Failed to process resume' });
+        }
+  
+        resume.extracted_text = updatedResume.extracted_text;
+        resume.embedding = updatedResume.embedding;
+      }
+  
+      // Generate job description embedding
+      const jobEmbedding = await generateJobEmbedding(job.description);
+  
+      // Calculate similarity score
+      const similarityScore = cosineSimilarity(resume.embedding, jobEmbedding);
+      const similarityPercentage = Math.round(similarityScore * 100);
+  
+      // Analyze resume with AI
+      const aiAnalysis = await analyzeResumeWithAI(resume.extracted_text, job.description);
+  
+      // Check if analysis result already exists
+      const { data: existingResult } = await supabase
+        .from('results')
+        .select('id')
+        .eq('job_posting_id', jobId)
+        .eq('resume_id', resumeId)
+        .single();
+  
+      let result;
+  
+      if (existingResult) {
+        // Update existing result
+        const { data: updatedResult, error: updateError } = await supabase
+          .from('results')
+          .update({
+            score: aiAnalysis.score,
+            similarity_score: similarityPercentage,
+            strengths: aiAnalysis.strengths,
+            weaknesses: aiAnalysis.weaknesses,
+            suggestions: aiAnalysis.suggestions,
+          })
+          .eq('id', existingResult.id)
+          .select()
+          .single();
+  
+        if (updateError) {
+          console.error('Error updating analysis result:', updateError);
+          return res.status(500).json({ error: 'Failed to update analysis result' });
+        }
+  
+        result = updatedResult;
+      } else {
+        // Create new result
+        const { data: newResult, error: insertError } = await supabase
+          .from('results')
+          .insert({
+            job_posting_id: jobId,
+            resume_id: resumeId,
+            score: aiAnalysis.score,
+            similarity_score: similarityPercentage,
+            strengths: aiAnalysis.strengths,
+            weaknesses: aiAnalysis.weaknesses,
+            suggestions: aiAnalysis.suggestions,
+          })
+          .select()
+          .single();
+  
+        if (insertError) {
+          console.error('Error creating analysis result:', insertError);
+          return res.status(500).json({ error: 'Failed to create analysis result' });
+        }
+  
+        result = newResult;
+      }
+  
+      return res.status(200).json({
+        result,
+        message: 'Analysis completed successfully',
+      });
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      return res.status(500).json({ error: 'An unexpected error occurred' });
+    }
+  }
+  
+export default analyzeMatches;
+
+
+================================================
+FILE: controllers/checkApplications.js
+================================================
+import dotenv from 'dotenv';
+dotenv.config();
+import { supabase } from '../config/supabase.js';
+
+async function checkApplicationStatus(req, res) {
+  try {
+    const { applicationId, email } = req.body;
+
+    if (!applicationId || !email) {
+      return res.status(400).json({ error: 'Missing applicationId or email' });
+    }
+
+    console.log(`[DEBUG] Searching for applicationId: ${applicationId} with email: ${email}`);
+
+    // Query the candidate_submissions table directly
+    // We are assuming the custom ID is stored in a column named 'application_id'
+    // and the email is in 'candidate_email'
+    const { data: submission, error: submissionError } = await supabase
+      .from('candidate_submissions')
+      .select(`
+        *,
+        job_postings!candidate_submissions_job_posting_id_fkey(title, company),
+        resumes!candidate_submissions_resume_id_fkey(
+          id,
+          results!results_resume_id_fkey(score, similarity_score, strengths, weaknesses, suggestions)
+        )
+      `)
+      .eq('application_id', applicationId) // Filter by the custom application ID
+      .eq('candidate_email', email)       // Filter by the candidate's email
+      .maybeSingle();
+
+    if (submissionError) {
+      console.error('[DEBUG] Error fetching submission:', submissionError);
+      // This error might indicate that 'application_id' or 'candidate_email' columns don't exist.
+      // Let's check the table structure if that's the case.
+      if (submissionError.code === 'PGRST116') {
+        return res.status(500).json({ 
+          error: 'Database schema mismatch. The columns "application_id" or "candidate_email" might not exist on the candidate_submissions table.',
+          details: submissionError.message 
+        });
+      }
+      return res.status(500).json({ error: 'Error fetching application' });
+    }
+
+    if (!submission) {
+      console.log(`[DEBUG] Application not found. No record matched applicationId: ${applicationId} and email: ${email}`);
+      return res.status(404).json({ error: 'Application not found' });
+    }
+
+    console.log('[DEBUG] Submission found:', submission.id);
+
+    // Format response
+    const response = {
+      application_id: submission.application_id, // Use the custom ID
+      candidate_name: submission.candidate_name,
+      job_title: submission.job_postings?.title || 'N/A',
+      company: submission.job_postings?.company || 'N/A',
+      status: submission.status,
+      created_at: submission.created_at,
+      updated_at: submission.updated_at,
+    };
+
+    // Include AI analysis if available
+    if (submission.resumes && submission.resumes.results && submission.resumes.results.length > 0) {
+      const result = submission.resumes.results[0];
+      response.analysis = {
+        score: result.score,
+        similarity_score: result.similarity_score,
+        strengths: result.strengths,
+        weaknesses: result.weaknesses,
+        suggestions: result.suggestions,
+      };
+    }
+
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('Unexpected error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred' });
+  }
+}
+
+export default checkApplicationStatus;
+
+
+================================================
+FILE: controllers/createJobPosting.js
+================================================
+import dotenv from 'dotenv';
+dotenv.config();
+import { supabase } from '../config/supabase.js';
+
+async function createJobPosting(req, res) {
+  // console.log('Incoming job post:', req.body);
+  console.log("Actual req.body type:", typeof req.body);
+console.log("Actual req.body content:", req.body);
+let data = req.body;
+if (typeof data.body === 'string') {
+  try {
+    data = JSON.parse(data.body);
+  } catch {
+    // fallback if not parsable
+  }
+}
+console.log(data)
+
+  try {
+    const { user_id, title, description, company, location, is_active } = data
+
+    if (!user_id || !title || !description || !company || !location) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Verify the user exists in auth.users
+    const { data: user, error: userError } = await supabase.auth.admin.getUserById(user_id);
+
+    if (userError || !user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Create the job posting
+    const { data: job, error: jobError } = await supabase
+      .from('job_postings')
+      .insert({
+        user_id,
+        title,
+        description,
+        company,
+        location,
+        is_active: is_active !== undefined ? is_active : true,
+      })
+      .select()
+      .single();
+
+    if (jobError) {
+      console.error('Error creating job posting:', jobError);
+      return res.status(500).json({ error: 'Failed to create job posting' });
+    }
+
+    // Generate public URL
+    const publicUrl = `${process.env.PUBLIC_URL}/jobs/${job.id}`;
+
+    return res.status(201).json({
+      job,
+      publicUrl,
+    });
+  } catch (error) {
+    console.error('Unexpected error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred' });
+  }
+}
+
+export default createJobPosting;
+
+
+
+================================================
+FILE: controllers/processResume.js
+================================================
+// import pdf from 'pdf-parse';
+// import mammoth from 'mammoth';
+// import dotenv from 'dotenv';
+// dotenv.config();
+// import { supabase } from '../config/supabase.js';
+// import { GoogleGenAI } from "@google/genai";
+
+// // Initialize the Google GenAI client with your API key from the .env file
+// const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY });
+
+// /**
+//  * Generates an embedding vector for a given text using Google's gemini-embedding-001 model.
+//  * @param {string} text - The text to generate an embedding for.
+//  * @returns {Promise<number[]>} - A promise that resolves to the embedding vector.
+//  */
+// async function generateEmbedding(text) {
+//   try {
+//     // The model can handle a reasonable amount of text, but it's good practice
+//     // to ensure it's not excessively long.
+//     const maxTokens = 8000;
+//     const truncatedText = text.length > maxTokens ? text.substring(0, maxTokens) : text;
+
+//     const response = await ai.models.embedContent({
+//       model: 'gemini-embedding-001',
+//       contents: truncatedText,
+//     });
+
+//     // The embedding vector is in the `values` property of the `embedding` object
+//     return response.embedding.values;
+//   } catch (error) {
+//     console.error('Error generating embedding with Google GenAI:', error);
+//     // Check for specific authentication errors
+//     if (error.message.includes('API key')) {
+//       throw new Error('Google GenAI API key is invalid or missing. Please check your .env file.');
+//     }
+//     throw new Error('Failed to generate embedding');
+//   }
+// }
+
+// /**
+//  * Main controller function to process a resume.
+//  * It downloads the file, extracts text, generates an embedding, and updates the database.
+//  * @param {object} req - The Express request object.
+//  * @param {object} res - The Express response object.
+//  */
+// async function processResume(req, res) {
+//   const { resume_id } = req.body;
+
+//   // Helper function to send responses or throw errors if res is not available (for background calls)
+//   const sendResponse = (statusCode, data) => {
+//     if (res && res.status && res.json) {
+//       return res.status(statusCode).json(data);
+//     }
+//     throw new Error(data.error || 'An unexpected error occurred');
+//   };
+
+//   try {
+//     if (!resume_id) {
+//       return sendResponse(400, { error: 'Missing resume_id' });
+//     }
+
+//     // Get resume record
+//     const { data: resume, error: resumeError } = await supabase
+//       .from('resumes')
+//       .select('*')
+//       .eq('id', resume_id)
+//       .single();
+
+//     if (resumeError || !resume) {
+//       return sendResponse(404, { error: 'Resume not found' });
+//     }
+
+//     // Update status to 'processing' before starting the work
+//     await supabase
+//       .from('resumes')
+//       .update({ status: 'processing' })
+//       .eq('id', resume_id);
+
+//     // Download the file from Supabase Storage
+//     const { data: fileData, error: downloadError } = await supabase.storage
+//       .from('resumes')
+//       .download(resume.file_path);
+
+//     if (downloadError) {
+//       console.error('Error downloading resume:', downloadError);
+//       await updateResumeStatus(resume_id, 'error', 'Failed to download resume from storage.');
+//       return sendResponse(500, { error: 'Failed to download resume' });
+//     }
+
+//     // Convert to Buffer
+//     const arrayBuffer = await fileData.arrayBuffer();
+//     const fileBuffer = Buffer.from(arrayBuffer);
+
+//     // Extract text based on file type
+//     let extractedText = '';
+//     const fileName = resume.file_name.toLowerCase();
+
+//     if (fileName.endsWith('.pdf')) {
+//       const data = await pdf(fileBuffer);
+//       extractedText = data.text;
+//     } else if (fileName.endsWith('.docx')) {
+//       const result = await mammoth.extractRawText({ buffer: fileBuffer });
+//       extractedText = result.value;
+//     } else if (fileName.endsWith('.doc')) {
+//       // Note: DOC files are harder to parse. This is a simplified approach.
+//       extractedText = fileBuffer.toString('utf-8');
+//     } else {
+//       await updateResumeStatus(resume_id, 'error', 'Unsupported file type.');
+//       return sendResponse(400, { error: 'Unsupported file type' });
+//     }
+
+//     if (!extractedText.trim()) {
+//       await updateResumeStatus(resume_id, 'error', 'Could not extract text from the resume.');
+//       return sendResponse(400, { error: 'Could not extract text from the resume.' });
+//     }
+
+//     // Generate embedding
+//     let embedding;
+//     try {
+//       embedding = await generateEmbedding(extractedText);
+//     } catch (embeddingError) {
+//       console.error('Embedding generation failed:', embeddingError.message);
+//       await updateResumeStatus(resume_id, 'error', `Embedding generation failed: ${embeddingError.message}`);
+//       return sendResponse(500, { error: embeddingError.message });
+//     }
+
+//     // Update resume record with extracted text and embedding
+//     const { data: updatedResume, error: updateError } = await supabase
+//       .from('resumes')
+//       .update({
+//         extracted_text: extractedText,
+//         embedding: embedding,
+//         status: 'processed',
+//       })
+//       .eq('id', resume_id)
+//       .select()
+//       .single();
+
+//     if (updateError) {
+//       console.error('Error updating resume:', updateError);
+//       await updateResumeStatus(resume_id, 'error', 'Failed to update resume record in database.');
+//       return sendResponse(500, { error: 'Failed to update resume' });
+//     }
+
+//     return sendResponse(200, {
+//       resume: updatedResume,
+//       message: 'Resume processed successfully',
+//     });
+
+//   } catch (error) {
+//     console.error('Unexpected error in processResume:', error);
+//     if (resume_id) {
+//       await updateResumeStatus(resume_id, 'error', `An unexpected error occurred: ${error.message}`);
+//     }
+//     return sendResponse(500, { error: 'An unexpected error occurred' });
+//   }
+// }
+
+// /**
+//  * Helper function to update the resume status in the database.
+//  * @param {string} resumeId - The ID of the resume to update.
+//  * @param {string} status - The new status ('processing', 'processed', 'error').
+//  * @param {string} [errorMessage] - An optional error message to store.
+//  */
+// async function updateResumeStatus(resumeId, status, errorMessage = null) {
+//   try {
+//     const updateData = { status };
+//     if (errorMessage) {
+//       updateData.error_message = errorMessage;
+//     }
+//     await supabase
+//       .from('resumes')
+//       .update(updateData)
+//       .eq('id', resumeId);
+//     console.log(`Resume ${resumeId} status updated to: ${status}`);
+//   } catch (error) {
+//     console.error(`Failed to update status for resume ${resumeId}:`, error);
+//   }
+// }
+
+// export default processResume;
+
+
+
+
+
+// controllers/processResume.js
+
+import pdf from 'pdf-parse';
+import mammoth from 'mammoth';
+import dotenv from 'dotenv';
+dotenv.config();
+import { supabase } from '../config/supabase.js';
+import { GoogleGenAI } from "@google/genai";
+
+// Initialize the Google GenAI client
+const GEMINI_API_KEY = process.env.GOOGLE_GENAI_API_KEY;
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+
+/**
+ * Generates an embedding vector for a given text using Google's gemini-embedding-001 model.
+ * @param {string} text - The text to generate an embedding for.
+ * @returns {Promise<number[]>} - A promise that resolves to the embedding vector.
+ */
+async function generateEmbedding(text) {
+  try {
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      throw new Error('Input text must be a non-empty string.');
+    }
+
+    const maxTokens = 8000;
+    const truncatedText = text.length > maxTokens ? text.substring(0, maxTokens) : text;
+
+    // Generate the embedding using the correct API syntax
+    const response = await ai.models.embedContent({
+      model: 'gemini-embedding-001',
+      contents: truncatedText,
+    });
+
+    // IMPORTANT: Log the full response to see its exact structure.
+    // This will help debug if the API response format changes.
+    // console.log('Google GenAI Embedding Response:', );
+
+    // The response should have an `embedding` property with a `values` array.
+    // Based on the new API syntax, the structure should be: { embedding: { values: [number, number, ...] } }
+    let embeddingValues;
+
+    if (response && response.embeddings && Array.isArray(response.embeddings)) {
+      // Expected structure: { embedding: { values: [number, number, ...] } }
+      embeddingValues = response.embeddings;
+    } else {
+      // If the expected structure is not found, log the response for debugging
+      console.error('Could not find embedding values in the response. Full response:', response);
+      throw new Error('Invalid response from Google GenAI: could not locate embedding values.');
+    }
+
+    if (!embeddingValues || embeddingValues.length === 0) {
+      throw new Error('Invalid response from Google GenAI: embedding values array is empty.');
+    }
+
+    return embeddingValues;
+  } catch (error) {
+    console.error('Error generating embedding with Google GenAI:', error);
+    if (error.message.includes('API key') || error.status === 403) {
+      throw new Error('Gemini API key is invalid or missing. Please check your .env file.');
+    }
+    // Re-throw the error with more context
+    throw new Error(`Failed to generate embedding: ${error.message}`);
+  }
+}
+
+/**
+ * Helper function to update the resume status in the database.
+ * @param {string} resumeId - The ID of the resume to update.
+ * @param {string} status - The new status ('processing', 'processed', 'error').
+ * @param {string} [errorMessage] - An optional error message to store.
+ */
+async function updateResumeStatus(resumeId, status, errorMessage = null) {
+  try {
+    const updateData = { status };
+    if (errorMessage) {
+      updateData.error_message = errorMessage;
+    }
+    await supabase
+      .from('resumes')
+      .update(updateData)
+      .eq('id', resumeId);
+    console.log(`Resume ${resumeId} status updated to: ${status}`);
+  } catch (error) {
+    console.error(`Failed to update status for resume ${resumeId}:`, error);
+  }
+}
+
+/**
+ * Main controller function to process a resume.
+ * It downloads the file, extracts text, generates an embedding, and updates the database.
+ * @param {object} req - The Express request object.
+ * @param {object} res - The Express response object (can be a mock for background calls).
+ */
+async function processResume(req, res) {
+  const { resume_id } = req.body;
+
+  // This helper function handles sending responses for both API calls and background processing.
+  // It's robust against a missing or mock `res` object.
+  const sendResponse = (statusCode, data) => {
+    // If a real response object exists, use it.
+    if (res && typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(statusCode).json(data);
+    }
+    // If this is a background call (res is a mock), throw an error to be caught by the .catch() block.
+    // The .catch() block in submitApplication will log it.
+    throw new Error(data.error || 'An unexpected error occurred during background processing.');
+  };
+
+  try {
+    if (!resume_id) {
+      return sendResponse(400, { error: 'Missing resume_id' });
+    }
+
+    // Get resume record
+    const { data: resume, error: resumeError } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('id', resume_id)
+      .single();
+
+    if (resumeError || !resume) {
+      return sendResponse(404, { error: 'Resume not found' });
+    }
+
+    // Update status to 'processing' before starting the work
+    await updateResumeStatus(resume_id, 'processing');
+
+    // Download the file from Supabase Storage
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('resumes')
+      .download(resume.file_path);
+
+    if (downloadError) {
+      console.error('Error downloading resume:', downloadError);
+      await updateResumeStatus(resume_id, 'error', 'Failed to download resume from storage.');
+      return sendResponse(500, { error: 'Failed to download resume' });
+    }
+
+    // Convert to Buffer
+    const arrayBuffer = await fileData.arrayBuffer();
+    const fileBuffer = Buffer.from(arrayBuffer);
+
+    // Extract text based on file type
+    let extractedText = '';
+    const fileName = resume.file_name.toLowerCase();
+
+    if (fileName.endsWith('.pdf')) {
+      const data = await pdf(fileBuffer);
+      extractedText = data.text;
+    } else if (fileName.endsWith('.docx')) {
+      const result = await mammoth.extractRawText({ buffer: fileBuffer });
+      extractedText = result.value;
+    } else if (fileName.endsWith('.doc')) {
+      // Note: DOC files are harder to parse. This is a simplified approach.
+      extractedText = fileBuffer.toString('utf-8');
+    } else {
+      await updateResumeStatus(resume_id, 'error', 'Unsupported file type.');
+      return sendResponse(400, { error: 'Unsupported file type' });
+    }
+
+    if (!extractedText.trim()) {
+      await updateResumeStatus(resume_id, 'error', 'Could not extract text from the resume.');
+      return sendResponse(400, { error: 'Could not extract text from the resume.' });
+    }
+
+    // Generate embedding
+    let embedding;
+    try {
+      embedding = await generateEmbedding(extractedText);
+    } catch (embeddingError) {
+      console.error('Embedding generation failed:', embeddingError.message);
+      await updateResumeStatus(resume_id, 'error', `Embedding generation failed: ${embeddingError.message}`);
+      return sendResponse(500, { error: embeddingError.message });
+    }
+
+    // Update resume record with extracted text and embedding
+    const { data: updatedResume, error: updateError } = await supabase
+      .from('resumes')
+      .update({
+        extracted_text: extractedText,
+        embedding: embedding,
+        status: 'processed',
+      })
+      .eq('id', resume_id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating resume:', updateError);
+      await updateResumeStatus(resume_id, 'error', 'Failed to update resume record in database.');
+      return sendResponse(500, { error: 'Failed to update resume' });
+    }
+
+    return sendResponse(200, {
+      resume: updatedResume,
+      message: 'Resume processed successfully',
+    });
+
+  } catch (error) {
+    console.error('Unexpected error in processResume:', error);
+    if (resume_id) {
+      await updateResumeStatus(resume_id, 'error', `An unexpected error occurred: ${error.message}`);
+    }
+    return sendResponse(500, { error: 'An unexpected error occurred' });
+  }
+}
+
+export default processResume;
+
+
+================================================
+FILE: controllers/submitApplications.js
+================================================
+import dotenv from 'dotenv';
+dotenv.config();
+import { supabase } from '../config/supabase.js';
+import processResume from './processResume.js';
+
+// Utility function to generate application ID
+function generateApplicationId() {
+  const timestamp = Date.now().toString();
+  const randomString = Math.random().toString(36).substring(2, 8);
+  return `APP-${timestamp}-${randomString}`;
+}
+
+async function submitApplication(req, res) {
+  try {
+    console.log("Incoming body:", req.body);
+    const { job_posting_id, candidate_name, candidate_email, candidate_phone } = req.body;
+    const resumeFile = req.file; // multer gives you the file here ✅
+
+    if (!job_posting_id || !candidate_name || !candidate_email || !resumeFile) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Build filename
+    const fileName = `${candidate_name.replace(/\s+/g, "_")}_${Date.now()}.${resumeFile.originalname.split(".").pop()}`;
+    const filePath = `resumes/${job_posting_id}/${fileName}`;
+
+    // Upload buffer to Supabase storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("resumes")
+      .upload(filePath, resumeFile.buffer, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Error uploading resume:", uploadError);
+      return res.status(500).json({ error: "Failed to upload resume" });
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage.from("resumes").getPublicUrl(filePath);
+    const fileUrl = urlData.publicUrl;
+
+    // Insert into resumes table
+    const { data: resumeData, error: resumeError } = await supabase
+      .from("resumes")
+      .insert({
+        file_name: resumeFile.originalname,
+        file_url: fileUrl,
+        file_path: filePath,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (resumeError) {
+      console.error("Error creating resume record:", resumeError);
+      return res.status(500).json({ error: "Failed to create resume record" });
+    }
+
+    // Generate applicationId + insert submission
+    const applicationId = generateApplicationId();
+
+    const { error: submissionError } = await supabase
+      .from("candidate_submissions")
+      .insert({
+        job_posting_id,
+        resume_id: resumeData.id,
+        candidate_name,
+        candidate_email,
+        candidate_phone,
+        application_id: applicationId,
+        status: "received",
+      });
+
+    if (submissionError) {
+      console.error("Error creating candidate submission:", submissionError);
+      return res.status(500).json({ error: "Failed to create application" });
+    }
+
+    processResume(
+      { body: { resume_id: resumeData.id } }, // Mock request object
+      { 
+        status: () => {}, // Mock response object methods to prevent errors
+        json: () => {}    
+      }
+    ).catch(error => {
+      // Log any errors from the background process, but don't fail the main request
+      console.error("Background resume processing failed:", error);
+    });
+
+    return res.status(201).json({
+      application_id: applicationId,
+      message: "Application submitted successfully",
+    });
+  } catch (error) {
+    console.error("Unexpected error:", error);
+    return res.status(500).json({ error: "An unexpected error occurred" });
+  }
+}
+
+
+export default submitApplication;
+
+
+
+
+
+

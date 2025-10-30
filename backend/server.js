@@ -1,47 +1,35 @@
-// backend/server.js
-
 import { config } from 'dotenv';
-config(); // Load environment variables from .env.local or .env
-// console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
-// console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY);
-import { createClient } from "@supabase/supabase-js";
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
+config(); 
+import { supabase } from './config/supabase.js';
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer'; 
-
-import analyzeMatches from './controllers/analyzeMatches.js';
 import checkApplicationStatus from './controllers/checkApplications.js';
 import createJobPosting from './controllers/createJobPosting.js';
 import processResume from './controllers/processResume.js';
 import submitApplication from './controllers/submitApplications.js';
+console.log('checkApplicationStatus handler imported:', checkApplicationStatus); 
+import analysisResults from './controllers/analysisResults.js';
+import getApplications from './controllers/getApplications.js';
+import updateApplicationStatus from './controllers/updateApplicationStatus.js';
 
-// // Initialize Express app
 const app = express();
 const port = process.env.PORT || 3000;
 
-// CORS configuration - adjust origins as needed (e.g., your frontend URL)
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://localhost:5173'], // Add your frontend origins here (e.g., Vite default port 5173)
+  origin: ['http://localhost:3000', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true, // If you need cookies/auth
+  credentials: true, 
 };
 
-// Middlewares
-app.use(cors(corsOptions)); // Enable CORS with specific options
+app.use(cors(corsOptions)); 
 app.use(express.json()); 
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+app.use(express.urlencoded({ extended: true })); 
 
-// Multer setup for file uploads (used in submit-application)
-const upload = multer({ storage: multer.memoryStorage() }); // Store files in memory for Supabase upload
+const upload = multer({ storage: multer.memoryStorage() }); 
 
-// Routes
-app.post('/api/analyze-matches', analyzeMatches);
+app.get('/api/analyze-results/:jobId', analysisResults);
 app.post('/api/check-application-status', checkApplicationStatus);
 app.post('/api/create-job-posting', createJobPosting);
 app.post('/api/process-resume', processResume);
@@ -67,6 +55,8 @@ app.get("/api/job-postings/:userId", async (req, res) => {
     return res.status(500).json({ error: "Unexpected error occurred" });
   }
 });
+app.get("/api/applications/:jobId", getApplications);
+app.post("/api/update-application-status/:id", updateApplicationStatus);
 app.get("/api/job-posting/:jobId", async (req, res) => {
   try {
     const { jobId } = req.params;

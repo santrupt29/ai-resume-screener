@@ -8,7 +8,7 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 
 export default function LoginPage() {
-  const { signInFunction } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [loginForm, setLoginForm] = useState({
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setError('');
     
     try {
-      await signInFunction(loginForm.email, loginForm.password);
+      await signIn(loginForm.email, loginForm.password);
       addToast('Login successful!', 'success');
       navigate('/dashboard');
     } catch (err) {
