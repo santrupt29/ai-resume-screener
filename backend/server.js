@@ -17,7 +17,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 const corsOptions = {
-  origin: [process.env.PUBLIC_URL],
+  origin: [process.env.PUBLIC_URL, 'https://hirelyzehq.vercel.app'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true, 
