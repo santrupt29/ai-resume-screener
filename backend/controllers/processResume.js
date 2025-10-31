@@ -247,8 +247,14 @@ export async function processResumeCore({resume_id, job_posting_id}) {
     const fileName = resume.file_name.toLowerCase();
 
     if (fileName.endsWith('.pdf')) {
-      const data = await pdf(fileBuffer);
-      extractedText = data.text;
+      let data;
+      try {
+        data = await pdf(fileBuffer);
+        extractedText = data.text;
+      } catch (error) {
+        console.error('Error extracting text from PDF pdf-parse failed :', error);
+        throw error;
+      }
     } else if (fileName.endsWith('.docx')) {
       const result = await mammoth.extractRawText({ buffer: fileBuffer });
       extractedText = result.value;
