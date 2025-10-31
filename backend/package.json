@@ -18,7 +18,10 @@
         "mammoth": "^1.6.0",
         "multer": "^2.0.2",
         "openai": "^4.20.1",
-        "pdf-parse": "^2.4.5",
+        "pdf-parse-fixed": "^1.1.1",
+        "pdf2json": "^4.0.0",
+        "pdfjs-dist": "^3.4.120",
+        "tesseract.js": "^6.0.1",
         "uuid": "^9.0.1"
     },
     "devDependencies": {

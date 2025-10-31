@@ -1,5 +1,8 @@
-// import pdf from 'pdf-parse';
-import {PDFParse} from 'pdf-parse';
+import PDFParser from "pdf2json";
+import fs from "fs";
+import { extractTextFromPdfBuffer } from "../utils/extractTextPdf2jsonWithOcr.js";
+import fetch from "node-fetch";
+import FormData from "form-data";
 import mammoth from 'mammoth';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -10,6 +13,19 @@ import { GoogleGenAI } from "@google/genai";
 const GEMINI_API_KEY = process.env.GOOGLE_GENAI_API_KEY;
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
+async function extractText(filePath) {
+  return new Promise((resolve, reject) => {
+    const pdfParser = new PDFParser();
+
+    pdfParser.on("pdfParser_dataError", (err) => reject(err.parserError));
+    pdfParser.on("pdfParser_dataReady", (pdfData) => {
+      const text = pdfParser.getRawTextContent();
+      resolve(text);
+    });
+
+    pdfParser.loadPDF(filePath);
+  });
+}
 async function generateEmbedding(text) {
   try {
     if (!text || typeof text !== 'string' || !text.trim()) {
@@ -106,18 +122,40 @@ export async function processResume(req, res) {
     }
 
     const arrayBuffer = await fileData.arrayBuffer();
-    // const fileBuffer = Buffer.from(arrayBuffer);
-    const fileBuffer = new Uint8Array(arrayBuffer);
+    const fileBuffer = Buffer.from(arrayBuffer);
+    // const fileBuffer = new Uint8Array(arrayBuffer);
 
     let extractedText = '';
     const fileName = resume.file_name.toLowerCase();
 
     if (fileName.endsWith('.pdf')) {
-      const parser = new PDFParse(fileBuffer);
-      // const data = await pdf(fileBuffer);
-      const result = await parser.getText();
-      // extractedText = data.text;
-      extractedText = result.text;
+  try {
+    const pdfParser = new PDFParser();
+
+    extractedText = await new Promise((resolve, reject) => {
+      pdfParser.on("pdfParser_dataError", errData => {
+        console.error("PDF parsing error:", errData.parserError);
+        reject(new Error("Failed to parse PDF file"));
+      });
+
+      pdfParser.on("pdfParser_dataReady", pdfData => {
+        const rawText = pdfParser.getRawTextContent();
+        if (!rawText || !rawText.trim()) {
+          console.warn("No text extracted from PDF — possibly image-only or encrypted.");
+          reject(new Error("Could not extract text from the resume."));
+        } else {
+          resolve(rawText);
+        }
+      });
+
+      // Start parsing
+      pdfParser.parseBuffer(fileBuffer);
+    });
+  } catch (err) {
+    console.error("Unexpected PDF parsing failure:", err);
+    throw new Error("Could not extract text from the resume.");
+  }
+
     } else if (fileName.endsWith('.docx')) {
       const result = await mammoth.extractRawText({ buffer: fileBuffer });
       extractedText = result.value;
@@ -246,16 +284,44 @@ export async function processResumeCore({resume_id, job_posting_id}) {
     }
 
     const arrayBuffer = await fileData.arrayBuffer();
-    // const fileBuffer = Buffer.from(arrayBuffer);
-    const fileBuffer = new Uint8Array(arrayBuffer);
+    const fileBuffer = Buffer.from(arrayBuffer);
+    // const fileBuffer = new Uint8Array(arrayBuffer);
 
     let extractedText = '';
     const fileName = resume.file_name.toLowerCase();
 
     if (fileName.endsWith('.pdf')) {
-      const parser = new PDFParse(fileBuffer);
-      const result = await parser.getText();
-      extractedText = result.text;
+      // extractedText = await extractTextFromPdfBuffer(fileBuffer);
+
+      try {
+        const form = new FormData();
+        form.append("file", fileBuffer, fileName); 
+        form.append("language", "eng");
+        form.append("isOverlayRequired", "false");
+    
+        const response = await fetch("https://api.ocr.space/parse/image", {
+          method: "POST",
+          headers: {
+            apikey: process.env.OCR_SPACE_API_KEY,
+            ...form.getHeaders(),
+          },
+          body: form,
+        });    
+    
+        const data = await response.json();
+
+    const parsedResults = data.ParsedResults;
+    if (!parsedResults || !parsedResults.length) {
+      throw new Error("Could not extract text from the resume.");
+    }
+
+    extractedText = parsedResults.map(r => r.ParsedText).join("\n");
+
+  } catch (err) {
+    console.error("OCR.Space PDF extraction error:", err);
+    throw new Error("Could not extract text from the resume.");
+  }
+    
     } else if (fileName.endsWith('.docx')) {
       const result = await mammoth.extractRawText({ buffer: fileBuffer });
       extractedText = result.value;
