@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { supabase } from '../config/supabase.js';
 import { GoogleGenAI } from "@google/genai";
+import jobQueue from '../queue.js';
 
 const GEMINI_API_KEY = process.env.GOOGLE_GENAI_API_KEY;
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -152,4 +153,93 @@ export async function updateJobPosting(req, res) {
     console.error('Unexpected error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred' });
   }
+}
+
+
+export async function createJobPostingCore({ user_id, title, description, company, location, is_active }) {
+  if (!user_id || !title || !description || !company || !location) {
+    throw new Error('Missing required fields');
+  }
+
+  const { data: user, error: userError } = await supabase.auth.admin.getUserById(user_id);
+  if (userError || !user) {
+    throw new Error('User not found');
+  }
+
+  const { data: job, error: jobError } = await supabase
+    .from('job_postings')
+    .insert({
+      user_id,
+      title,
+      description,
+      company,
+      location,
+      embedding: null,
+      is_active: is_active !== undefined ? is_active : true,
+      status: 'pending',
+    })
+    .select()
+    .single();
+
+  if (jobError) {
+    throw new Error('Failed to create job posting');
+  }
+  await jobQueue.addJob({
+    type: 'jobPostingEmbedding',
+    payload: {
+      jobId: job.id,
+      description,
+    }
+  });
+
+  return job;
+}
+
+
+export async function updateJobPostingCore(
+  jobId,
+  { user_id, title, description, company, location, is_active }
+) {
+  if (!jobId) {
+    throw new Error('Job ID is required');
+  }
+  if (!user_id || !title || !description || !company || !location) {
+    throw new Error('Missing required fields');
+  }
+
+  const { data: user, error: userError } = await supabase.auth.admin.getUserById(user_id);
+  if (userError || !user) {
+    throw new Error('User not found');
+  }
+
+  const updates = {
+    title,
+    description,
+    company,
+    location,
+    embedding: null,
+    is_active: is_active !== undefined ? is_active : true,
+    status: 'pending',
+  };
+
+  const { data: job, error: jobError } = await supabase
+    .from('job_postings')
+    .update(updates)
+    .eq('id', jobId)
+    .select()
+    .single();
+
+  if (jobError) {
+    throw new Error('Failed to update job posting');
+  }
+
+  await jobQueue.addJob({
+    type: 'jobPostingEmbedding',
+    payload: {
+      jobId: job.id,
+      description,
+    }
+  });
+
+  return job;
 }

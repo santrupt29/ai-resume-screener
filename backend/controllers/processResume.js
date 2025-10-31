@@ -64,7 +64,7 @@ async function updateResumeStatus(resumeId, status, errorMessage = null) {
   }
 }
 
-async function processResume(req, res) {
+export async function processResume(req, res) {
   const { resume_id, job_posting_id } = req.body;
 
   const sendResponse = (statusCode, data) => {
@@ -201,11 +201,112 @@ async function analyzeMatchesAgainstJob(resumeId, jobPostingId) {
   }
 }
 
-export default processResume;
+export async function processResumeCore({resume_id, job_posting_id}) {
 
+  const sendResponse = (statusCode, data) => {
+    if (res && typeof res.status === 'function') {
+      const response = res.status(statusCode);
+      if (response && typeof response.json === 'function') {
+        return response.json(data);
+      }
+    }
+    throw new Error(data.error || 'An unexpected error occurred during background processing.');
+  };
 
+  try {
+    if (!resume_id) {
+      throw new Error('Missing resume_id');
+    }
 
+    const { data: resume, error: resumeError } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('id', resume_id)
+      .single();
 
+    if (resumeError || !resume) {
+      throw new Error('Resume not found');
+    }
 
+    await updateResumeStatus(resume_id, 'processing');
 
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('resumes')
+      .download(resume.file_path);
 
+    if (downloadError) {
+      console.error('Error downloading resume:', downloadError);
+      await updateResumeStatus(resume_id, 'error', 'Failed to download resume from storage.');
+      throw new Error('Failed to download resume from storage.');
+    }
+
+    const arrayBuffer = await fileData.arrayBuffer();
+    const fileBuffer = Buffer.from(arrayBuffer);
+
+    let extractedText = '';
+    const fileName = resume.file_name.toLowerCase();
+
+    if (fileName.endsWith('.pdf')) {
+      const data = await pdf(fileBuffer);
+      extractedText = data.text;
+    } else if (fileName.endsWith('.docx')) {
+      const result = await mammoth.extractRawText({ buffer: fileBuffer });
+      extractedText = result.value;
+    } else if (fileName.endsWith('.doc')) {
+      extractedText = fileBuffer.toString('utf-8');
+    } else {
+      await updateResumeStatus(resume_id, 'error', 'Unsupported file type.');
+      throw new Error('Unsupported file type.');
+    }
+
+    if (!extractedText.trim()) {
+      await updateResumeStatus(resume_id, 'error', 'Could not extract text from the resume.');
+      throw new Error('Could not extract text from the resume.');
+    }
+
+    let embedding;
+    try {
+      embedding = await generateEmbedding(extractedText);
+      // const vector = embedding.data[0].embedding;
+      // console.log(vector);
+    } catch (embeddingError) {
+      console.error('Embedding generation failed:', embeddingError.message);
+      await updateResumeStatus(resume_id, 'error', `Embedding generation failed: ${embeddingError.message}`);
+      throw new Error(`Embedding generation failed: ${embeddingError.message}`);
+    }
+
+    const { data: updatedResume, error: updateError } = await supabase
+      .from('resumes')
+      .update({
+        extracted_text: extractedText,
+        embedding: embedding,
+        status: 'processed',
+      })
+      .eq('id', resume_id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating resume:', updateError);
+      await updateResumeStatus(resume_id, 'error', 'Failed to update resume record in database.');
+      throw new Error('Failed to update resume record in database.');
+    }
+
+    if (job_posting_id) {
+      console.log(`Starting integrated analysis for resume ${resume_id} against job posting ${job_posting_id}`);
+      await analyzeMatchesAgainstJob(resume_id, job_posting_id);
+    }
+
+    return {
+      resume: updatedResume,
+      message: 'Resume processed successfully',
+    }
+
+  } catch (error) {
+    console.error('Unexpected error in processResume:', error);
+    if (resume_id) {
+      await updateResumeStatus(resume_id, 'error', `An unexpected error occurred: ${error.message}`);
+    }
+    throw new Error(`An unexpected error occurred: ${error.message}`);
+  }
+}

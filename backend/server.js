@@ -5,7 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer'; 
 import checkApplicationStatus from './controllers/checkApplications.js';
-import processResume from './controllers/processResume.js';
+import {processResume} from './controllers/processResume.js';
 import submitApplication from './controllers/submitApplications.js';
 console.log('checkApplicationStatus handler imported:', checkApplicationStatus); 
 import analysisResults from './controllers/analysisResults.js';

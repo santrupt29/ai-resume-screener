@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from 'dotenv';
 dotenv.config();
 import { supabase } from '../config/supabase.js';
-import processResume from './processResume.js';
+import {processResume} from './processResume.js';
 
 const GEMINI_API_KEY = process.env.GOOGLE_GENAI_API_KEY;
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
