@@ -1,4 +1,5 @@
-import pdf from 'pdf-parse';
+// import pdf from 'pdf-parse';
+import {PDFParse} from 'pdf-parse';
 import mammoth from 'mammoth';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -105,14 +106,18 @@ export async function processResume(req, res) {
     }
 
     const arrayBuffer = await fileData.arrayBuffer();
-    const fileBuffer = Buffer.from(arrayBuffer);
+    // const fileBuffer = Buffer.from(arrayBuffer);
+    const fileBuffer = new Uint8Array(arrayBuffer);
 
     let extractedText = '';
     const fileName = resume.file_name.toLowerCase();
 
     if (fileName.endsWith('.pdf')) {
-      const data = await pdf(fileBuffer);
-      extractedText = data.text;
+      const parser = new PDFParse(fileBuffer);
+      // const data = await pdf(fileBuffer);
+      const result = await parser.getText();
+      // extractedText = data.text;
+      extractedText = result.text;
     } else if (fileName.endsWith('.docx')) {
       const result = await mammoth.extractRawText({ buffer: fileBuffer });
       extractedText = result.value;
@@ -241,20 +246,16 @@ export async function processResumeCore({resume_id, job_posting_id}) {
     }
 
     const arrayBuffer = await fileData.arrayBuffer();
-    const fileBuffer = Buffer.from(arrayBuffer);
+    // const fileBuffer = Buffer.from(arrayBuffer);
+    const fileBuffer = new Uint8Array(arrayBuffer);
 
     let extractedText = '';
     const fileName = resume.file_name.toLowerCase();
 
     if (fileName.endsWith('.pdf')) {
-      let data;
-      try {
-        data = await pdf(fileBuffer);
-        extractedText = data.text;
-      } catch (error) {
-        console.error('Error extracting text from PDF pdf-parse failed :', error);
-        throw error;
-      }
+      const parser = new PDFParse(fileBuffer);
+      const result = await parser.getText();
+      extractedText = result.text;
     } else if (fileName.endsWith('.docx')) {
       const result = await mammoth.extractRawText({ buffer: fileBuffer });
       extractedText = result.value;
