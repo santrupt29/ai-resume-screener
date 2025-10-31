@@ -8,10 +8,7 @@ import {supabase, supabaseServer} from '../../lib/supabase';
 import { Sparkles, User, LogOut, Menu, X, ChevronDown } from 'lucide-react';
 
 const BrandLogo = () => (
-  <svg width="32" height="32" viewBox="0 0 32 32" className="mr-2 fill-primary">
-    <circle cx="16" cy="16" r="14" className="fill-primary-100" />
-    <text x="16" y="21" textAnchor="middle" className="fill-primary font-bold" fontSize="16">AI</text>
-  </svg>
+  <img src='logo.svg' alt="HireLyze Logo" width={32} height={32} className="mr-2 fill-primary" />
 );
 
 export default function Header() {
@@ -66,7 +63,7 @@ export default function Header() {
               <BrandLogo />
               <div className="ml-3 flex flex-col">
                 <span className="text-2xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent group-hover:from-indigo-700 group-hover:via-purple-700 group-hover:to-pink-700 transition-all">
-                  AI Resume Screener
+                  HireLyze
                 </span>
                 <span className="text-xs text-gray-500 font-medium tracking-wide">
                   {/* Powered by Intelligence */}

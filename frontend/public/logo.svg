@@ -1,0 +1,11 @@
+<svg width="300" height="300" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Left blue bar -->
+  <rect x="30" y="35" width="50" height="230" rx="20" fill="#157AFE"/>
+  <!-- Right green bar -->
+  <rect x="220" y="35" width="50" height="230" rx="20" fill="#00C49A"/>
+  <!-- Zigzag analytics polyline -->
+  <polyline points="35,180 110,120 170,180 220,70 270,125" fill="none" stroke="#11BF80" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Circles for nodes -->
+  <circle cx="110" cy="120" r="15" fill="#11BF80"/>
+  <circle cx="220" cy="70" r="15" fill="#11BF80"/>
+</svg>
