@@ -18,7 +18,7 @@
         "mammoth": "^1.6.0",
         "multer": "^2.0.2",
         "openai": "^4.20.1",
-        "pdf-parse": "^1.0.1",
+        "pdf-parse": "^2.4.5",
         "uuid": "^9.0.1"
     },
     "devDependencies": {
